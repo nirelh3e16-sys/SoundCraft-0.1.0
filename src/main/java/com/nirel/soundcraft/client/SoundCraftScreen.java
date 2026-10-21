@@ -11,7 +11,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import net.minecraft.Util;
 import net.minecraft.util.RandomSource;
 import java.util.ArrayList;
 import java.util.List;
@@ -73,10 +72,11 @@ public final class SoundCraftScreen extends Screen {
     public static void togglePauseResume() {
         var client = SoundCraftClient.minecraft(); if (client == null || current == null) return;
         if (playing) {
-            playbackMillis += Util.getMillis() - resumedAtMillis;
-            client.getSoundManager().pause(); playing = false; paused = true; status = "Paused";
+            playbackMillis += nowMillis() - resumedAtMillis;
+            client.getSoundManager().stop(current); playing = false; paused = true; status = "Paused";
         } else if (paused) {
-            client.getSoundManager().resume(); resumedAtMillis = Util.getMillis(); paused = false; playing = true; status = "Playing: " + safeTitle(nowPlaying);
+            current = new PlayerSoundInstance(nowPlaying.soundEvent(), PlayerSettings.volume / 10.0F);
+            client.getSoundManager().play(current); resumedAtMillis = nowMillis(); paused = false; playing = true; status = "Playing: " + safeTitle(nowPlaying);
         }
     }
     public static void nextTrack() { moveTrackAndPlay(1); }
@@ -98,7 +98,7 @@ public final class SoundCraftScreen extends Screen {
         try {
             current = new PlayerSoundInstance(track.soundEvent(), PlayerSettings.volume / 10.0F);
             client.getSoundManager().play(current);
-            nowPlaying = track; playing = true; paused = false; ticksSinceStart = 0; playbackMillis = 0; resumedAtMillis = Util.getMillis();
+            nowPlaying = track; playing = true; paused = false; ticksSinceStart = 0; playbackMillis = 0; resumedAtMillis = nowMillis();
             status = "Playing: " + safeTitle(track);
             if (PlayerSettings.nowPlayingNotifications) NowPlayingToast.show(client, track);
             if (track.vanilla()) { PlayerSettings.lastVanillaTrack = track.soundEvent().toString(); PlayerSettings.save(); }
@@ -148,6 +148,7 @@ public final class SoundCraftScreen extends Screen {
             g.text(font, fit(safeAuthor(track), 90), authorX, y, 0xFF858D99, true);
         }
         drawProgress(g, left, right);
+        NowPlayingToast.render(g, font, width);
         g.text(font, status, panelX + 14, panelY + panelH - 112, 0xFFDDDDDD, true);
         g.text(font, "Volume " + PlayerSettings.volume + "/10  •  Double-click a track to play", panelX + 14, panelY + panelH - 104, 0xFF9AA1AD, true);
     }
@@ -156,7 +157,7 @@ public final class SoundCraftScreen extends Screen {
         g.fill(left, y, barRight, y + 5, 0xFF303640);
         // The public engine exposes source activity, but no duration/seek API. Never fabricate a duration.
         // Resource packs with no duration metadata therefore retain an empty, valid progress bar.
-        long elapsed = playbackMillis + (playing ? Util.getMillis() - resumedAtMillis : 0L);
+        long elapsed = playbackMillis + (playing ? nowMillis() - resumedAtMillis : 0L);
         g.pose().pushPose(); g.pose().translate(discX + 8.0F, y + 2.5F, 0.0F);
         g.pose().mulPose(Axis.ZP.rotationDegrees((elapsed * 0.072F) % 360.0F));
         g.blit(DISC_TEXTURE, -8, -8, 0, 0, 16, 16, 16, 16); g.pose().popPose();
@@ -164,6 +165,7 @@ public final class SoundCraftScreen extends Screen {
     private String fit(String text, int width) { String value = text; while (value.length() > 1 && font.width(value + "…") > width) value = value.substring(0, value.length() - 1); return font.width(value) <= width ? value : value + "…"; }
     private static String safeTitle(Track t) { return t == null || t.title() == null || t.title().isBlank() ? "Unknown track" : t.title(); }
     private static String safeAuthor(Track t) { return t == null || t.author() == null || t.author().isBlank() ? "Unknown artist" : t.author(); }
+    private static long nowMillis() { return System.nanoTime() / 1_000_000L; }
     private static void outline(GuiGraphicsExtractor g, int x, int y, int w, int h, int c) { g.fill(x,y,x+w,y+1,c); g.fill(x,y+h-1,x+w,y+h,c); g.fill(x,y,x+1,y+h,c); g.fill(x+w-1,y,x+w,y+h,c); }
     @Override public boolean isPauseScreen() { return false; }
 }
