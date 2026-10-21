@@ -1,6 +1,5 @@
 package com.nirel.soundcraft.client;
 
-import com.mojang.math.Axis;
 import com.nirel.soundcraft.client.data.PlayerSettings;
 import com.nirel.soundcraft.client.data.Playlist;
 import com.nirel.soundcraft.client.data.PlaylistManager;
@@ -10,7 +9,6 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
 import net.minecraft.util.RandomSource;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,8 +16,6 @@ import java.util.List;
 /** SoundCraft player. Static playback fields allow it to keep running after this screen closes. */
 public final class SoundCraftScreen extends Screen {
     private static final int ROW_H = 16;
-    private static final Identifier DISC_TEXTURE = Identifier.fromNamespaceAndPath(
-            SoundCraftClient.MOD_ID, "textures/gui/sprites/icon/disc.png");
     private static int selectedPlaylist, selectedTrack, scroll, ticksSinceStart;
     private static long playbackMillis, resumedAtMillis;
     private static boolean playing, paused;
@@ -157,10 +153,12 @@ public final class SoundCraftScreen extends Screen {
         g.fill(left, y, barRight, y + 5, 0xFF303640);
         // The public engine exposes source activity, but no duration/seek API. Never fabricate a duration.
         // Resource packs with no duration metadata therefore retain an empty, valid progress bar.
-        long elapsed = playbackMillis + (playing ? nowMillis() - resumedAtMillis : 0L);
-        g.pose().pushPose(); g.pose().translate(discX + 8.0F, y + 2.5F, 0.0F);
-        g.pose().mulPose(Axis.ZP.rotationDegrees((elapsed * 0.072F) % 360.0F));
-        g.blit(DISC_TEXTURE, -8, -8, 0, 0, 16, 16, 16, 16); g.pose().popPose();
+        // GuiGraphicsExtractor in 26.2 records 2D matrices rather than exposing PoseStack.
+        // Keep this decoration within the supported primitive renderer; disc.png remains packaged
+        // for the future sprite API migration.
+        g.fill(discX, y - 5, discX + 16, y + 11, 0xFF151515);
+        g.fill(discX + 2, y - 3, discX + 14, y + 9, 0xFF383838);
+        g.fill(discX + 6, y + 1, discX + 10, y + 5, 0xFF111111);
     }
     private String fit(String text, int width) { String value = text; while (value.length() > 1 && font.width(value + "…") > width) value = value.substring(0, value.length() - 1); return font.width(value) <= width ? value : value + "…"; }
     private static String safeTitle(Track t) { return t == null || t.title() == null || t.title().isBlank() ? "Unknown track" : t.title(); }
